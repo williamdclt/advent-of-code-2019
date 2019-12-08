@@ -189,7 +189,7 @@ function* parser(debug = false): Generator<Command, Command, any> {
   }
 }
 
-function* createStream(
+export function* createStream(
   stream: number[] = []
 ): Generator<any, number, StreamCommand> {
   const buffer = [...stream];
@@ -210,7 +210,7 @@ function* createStream(
   }
 }
 
-function run(
+export function run(
   memory: number[],
   stdin = createStream(),
   stdout = createStream(),
@@ -297,16 +297,16 @@ function prepareAndRun(program, noun, verb) {
 assertEqual(prepareAndRun(getOldInput(), 12, 2), 3101844);
 assertEqual(prepareAndRun(getOldInput(), 84, 78), 19690720);
 
-function runWithInput(memory, stdin, debug = false) {
+export function execIntcode(memory: number[], stdin: number[], debug = false) {
   return run(memory, createStream(stdin), createStream(), debug);
 }
 
 assertEqual(
-  runWithInput(getInput(), [1]).stdout.next({ command: "flush" }).value,
+  execIntcode(getInput(), [1]).stdout.next({ command: "flush" }).value,
   [0, 0, 0, 0, 0, 0, 0, 0, 0, 14155342]
 );
 
 assertEqual(
-  runWithInput(getInput(), [5]).stdout.next({ command: "flush" }).value,
+  execIntcode(getInput(), [5]).stdout.next({ command: "flush" }).value,
   [8684145]
 );
