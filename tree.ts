@@ -1,6 +1,7 @@
 export type Tree = {
   key: string;
   children: Tree[];
+  parent: Tree | null;
 };
 
 export function printTree(tree: Tree, indent = 0) {

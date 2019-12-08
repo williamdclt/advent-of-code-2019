@@ -10,6 +10,20 @@ E)J
 J)K
 K)L`.split("\n");
 
+export const test2 = `COM)B
+B)C
+C)D
+D)E
+E)F
+B)G
+G)H
+D)I
+E)J
+J)K
+K)L
+K)YOU
+I)SAN`.split("\n");
+
 export const input = `F4H)7LQ
 TG2)G6N
 Y6X)5MP
