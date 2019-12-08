@@ -24,6 +24,11 @@ type Command =
   | { command: "INPUT" }
   | { command: "OUTPUT"; value: any };
 
+type StreamCommand =
+  | { command: "read" }
+  | { command: "write"; value: number }
+  | { command: "flush" };
+
 const add = (a: number, b: number) => a + b;
 const mult = (a: number, b: number) => a * b;
 const lt = (a: number, b: number) => a < b;
@@ -184,34 +189,37 @@ function* parser(debug = false): Generator<Command, Command, any> {
   }
 }
 
-function* getInputStream(stream: number[]) {
-  for (let element of stream) yield element;
-}
-
-function* getOutputStream() {
-  const buffer = [];
-  let flush = false;
-
-  while (!flush) {
-    const { value, flush: doFlush } = yield;
-    flush = doFlush;
-    if (!flush) {
-      buffer.push(value);
-    } else {
-      return buffer.join("");
+function* createStream(
+  stream: number[] = []
+): Generator<any, number, StreamCommand> {
+  const buffer = [...stream];
+  let readValue = null;
+  while (true) {
+    const command = yield readValue;
+    switch (command.command) {
+      case "read":
+        readValue = buffer.shift();
+        break;
+      case "write":
+        buffer.push(command.value);
+        break;
+      case "flush":
+        // @ts-ignore
+        return buffer;
     }
   }
 }
 
 function run(
   memory: number[],
-  stdin = getInputStream([]),
-  stdout = getOutputStream(),
+  stdin = createStream(),
+  stdout = createStream(),
   debug = false
 ) {
   const m = parser(debug);
   m.next();
   stdout.next();
+  stdin.next();
 
   let param = memory[0];
   let address = 1;
@@ -247,14 +255,12 @@ function run(
         break;
 
       case "INPUT":
-        param = stdin.next().value as number;
+        param = stdin.next({ command: "read" }).value;
         break;
 
       case "OUTPUT":
         debug && console.log("OUTPUT", command);
-        // if (command.value !== 0)
-        //   throw new Error(`Diagnostic failed ${command.value}`);
-        stdout.next({ value: command.value, flush: false });
+        stdout.next({ command: "write", value: command.value });
         break;
 
       default:
@@ -263,7 +269,7 @@ function run(
     }
   } while (!done);
 
-  return { memory, stdout: stdout.next({ value: null, flush: true }).value };
+  return { memory, stdout };
 }
 
 assertEqual(run([1, 0, 0, 0, 99]).memory, [2, 0, 0, 0, 99]);
@@ -288,13 +294,19 @@ function prepareAndRun(program, noun, verb) {
   return run(actualProgram).memory[0];
 }
 
-const input = getOldInput();
-assertEqual(prepareAndRun(input, 12, 2), 3101844);
-assertEqual(prepareAndRun(input, 84, 78), 19690720);
+assertEqual(prepareAndRun(getOldInput(), 12, 2), 3101844);
+assertEqual(prepareAndRun(getOldInput(), 84, 78), 19690720);
 
 function runWithInput(memory, stdin, debug = false) {
-  return run(memory, getInputStream(stdin), getOutputStream(), debug);
+  return run(memory, createStream(stdin), createStream(), debug);
 }
 
-assertEqual(runWithInput(getInput(), [1]).stdout, "00000000014155342");
-assertEqual(runWithInput(getInput(), [5]).stdout, "8684145");
+assertEqual(
+  runWithInput(getInput(), [1]).stdout.next({ command: "flush" }).value,
+  [0, 0, 0, 0, 0, 0, 0, 0, 0, 14155342]
+);
+
+assertEqual(
+  runWithInput(getInput(), [5]).stdout.next({ command: "flush" }).value,
+  [8684145]
+);
