@@ -1,4 +1,5 @@
-import { assertNever } from "./assert";
+import { assertNever, assertEqual, assert } from "./assert";
+import { Stream } from "./stream";
 
 export type State =
   | "WAITING"
@@ -26,7 +27,8 @@ export type Command =
 export type StreamCommand =
   | { command: "read" }
   | { command: "write"; value: number }
-  | { command: "flush" };
+  | { command: "flush" }
+  | { command: "peek" };
 
 const add = (a: number, b: number) => a + b;
 const mult = (a: number, b: number) => a * b;
@@ -188,37 +190,15 @@ function* parser(debug = false): Generator<Command, Command, any> {
   }
 }
 
-export function* createStream(
-  stream: number[] = []
-): Generator<any, number, StreamCommand> {
-  const buffer = [...stream];
-  let readValue = null;
-  while (true) {
-    const command = yield readValue;
-    switch (command.command) {
-      case "read":
-        readValue = buffer.shift();
-        break;
-      case "write":
-        buffer.push(command.value);
-        break;
-      case "flush":
-        // @ts-ignore
-        return buffer;
-    }
-  }
-}
-
-export function execIntcode(
+export async function execIntcode(
   memory: number[],
-  stdin = createStream(),
-  stdout = createStream(),
-  debug = false
+  stdin = new Stream(),
+  stdout = new Stream(),
+  name = "intcode_program"
 ) {
+  const debug = name === "debug";
   const m = parser(debug);
   m.next();
-  stdout.next();
-  stdin.next();
 
   let param = memory[0];
   let address = 1;
@@ -254,12 +234,12 @@ export function execIntcode(
         break;
 
       case "INPUT":
-        param = stdin.next({ command: "read" }).value;
+        param = await stdin.read();
         break;
 
       case "OUTPUT":
         debug && console.log("OUTPUT", command);
-        stdout.next({ command: "write", value: command.value });
+        await stdout.write(command.value);
         break;
 
       default:

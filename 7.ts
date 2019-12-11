@@ -1,6 +1,8 @@
 import { assertEqual, assertNever } from "./assert";
-import { input, test1, test2, test3 } from "./7.in";
-import { createStream, execIntcode } from "./5";
+import { input, test1, test2, test3, test4, test5 } from "./7.in";
+import { execIntcode } from "./intcode";
+import { Stream } from "./stream";
+import { hackyAwait } from "./await";
 
 // https://stackoverflow.com/questions/39927452/recursively-print-all-permutations-of-a-string-javascript
 function* getPermutations(arr: any[], n = arr.length) {
@@ -25,32 +27,53 @@ assertEqual(
   ]
 );
 
-function getSignal(memory: number[], phaseSettings: number[]) {
-  let prevOutputStream = createStream([0]);
-  prevOutputStream.next();
+/***********************************************************/
+/***********************************************************/
 
-  for (let phaseSetting of phaseSettings) {
-    const memCopy = [...memory];
-    const stdin = [
-      phaseSetting,
-      ...prevOutputStream.next({ command: "flush" }).value
-    ];
-    prevOutputStream = execIntcode(memCopy, stdin).stdout;
+hackyAwait(async () => {
+  async function getSignal(
+    memory: number[],
+    phaseSettings: number[],
+    feedback: boolean
+  ) {
+    let streams = phaseSettings.map((phaseSetting, index) =>
+      index ? new Stream([phaseSetting]) : new Stream([phaseSetting, 0])
+    );
+    streams.push(feedback ? streams[0] : new Stream());
+
+    await Promise.all(
+      phaseSettings.map((_, i) =>
+        execIntcode([...memory], streams[i], streams[i + 1])
+      )
+    );
+
+    return streams[streams.length - 1].peek()[0];
   }
 
-  return prevOutputStream.next({ command: "flush" }).value;
-}
+  async function getMaxThrusterSignal(
+    memory: number[],
+    phaseSettings: number[],
+    feedback = false
+  ) {
+    let maxSignal = 0;
+    for (let permutation of getPermutations(phaseSettings)) {
+      const signal = await getSignal(memory, permutation, feedback);
+      maxSignal = Math.max(maxSignal, signal);
+    }
+    return maxSignal;
+  }
 
-function getMaxThrusterSignal(memory: number[]) {
-  const phaseSettingsPermutations = [...getPermutations([0, 1, 2, 3, 4])];
-  const maxSignal = phaseSettingsPermutations.reduce(
-    (max, permutation) => Math.max(max, getSignal(memory, permutation)),
-    0
+  assertEqual(await getMaxThrusterSignal(test1, [0, 1, 2, 3, 4]), 43210);
+  assertEqual(await getMaxThrusterSignal(test2, [0, 1, 2, 3, 4]), 54321);
+  assertEqual(await getMaxThrusterSignal(test3, [0, 1, 2, 3, 4]), 65210);
+  assertEqual(await getMaxThrusterSignal(input, [0, 1, 2, 3, 4]), 75228);
+  assertEqual(
+    await getMaxThrusterSignal(test4, [5, 6, 7, 8, 9], true),
+    139629729
   );
-  return maxSignal;
-}
-
-assertEqual(getMaxThrusterSignal(test1), 43210);
-assertEqual(getMaxThrusterSignal(test2), 54321);
-assertEqual(getMaxThrusterSignal(test3), 65210);
-assertEqual(getMaxThrusterSignal(input), 75228);
+  assertEqual(await getMaxThrusterSignal(test5, [5, 6, 7, 8, 9], true), 18216);
+  assertEqual(
+    await getMaxThrusterSignal(input, [5, 6, 7, 8, 9], true),
+    79846026
+  );
+});
