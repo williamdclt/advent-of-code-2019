@@ -64,6 +64,39 @@ function getChecksum(layers: Layer[], dimensions: Dimensions) {
   return minChecksum;
 }
 
+function getFinalLayer(layers: Layer[], dimensions: Dimensions) {
+  let finalLayer: Layer = new Array(dimensions.height);
+  for (let i = 0; i < dimensions.height; i++) {
+    finalLayer[i] = new Array(dimensions.width);
+  }
+
+  for (let layer of layers) {
+    for (let y = 0; y < dimensions.height; y++) {
+      for (let x = 0; x < dimensions.width; x++) {
+        if (finalLayer[y][x] == undefined && layer[y][x] !== 2) {
+          finalLayer[y][x] = layer[y][x];
+        }
+      }
+    }
+  }
+  return finalLayer;
+}
+
+function printLayer(layer: Layer, dimensions: Dimensions) {
+  for (let y = 0; y < dimensions.height; y++) {
+    for (let x = 0; x < dimensions.width; x++) {
+      if (layer[y][x] === 1) {
+        // @ts-ignore
+        process.stdout.write("X");
+      } else {
+        // @ts-ignore
+        process.stdout.write(" ");
+      }
+    }
+    console.log();
+  }
+}
+
 // assertEqual(
 //   getChecksum(getLayers(test1.data, test1.dimensions), test1.dimensions),
 //   1
@@ -72,4 +105,11 @@ function getChecksum(layers: Layer[], dimensions: Dimensions) {
 assertEqual(
   getChecksum(getLayers(input.data, input.dimensions), input.dimensions),
   1620
+);
+
+console.log(
+  printLayer(
+    getFinalLayer(getLayers(input.data, input.dimensions), input.dimensions),
+    input.dimensions
+  )
 );
